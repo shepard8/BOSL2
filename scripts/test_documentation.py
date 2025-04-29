@@ -1,34 +1,80 @@
 import os
 import re
+from enum import Enum
 
 EOF = 'TDEOF'
 MULTIPLE_DESCRIPTIONS = 'TDMD'
 MULTIPLE_USAGES = 'TDMU'
+MULTIPLE_SYNOPSIS = 'TDMS'
+
+class Severity(Enum):
+    commonality = 0
+    recommendation = 1
+    needed = 2
 
 class Result:
-    def __init__(self, obj, message, success, details = ""):
+    def __init__(self, obj, message, success, severity : Severity = Severity.needed, details = ""):
         self.obj = obj
         self.message = message
         self.success = success
+        self.severity = severity
         self.details = details
 
 class Check:
-    def __init__(self, text, test, details = lambda x : ""):
+    def __init__(self, text, test, severity : Severity = Severity.needed, details = lambda x : ""):
         self.text = text
         self.test = test
         self.details = details
+        self.successes = 0
+        self.failures = 0
 
     def check(self, obj):
         success = self.test(obj)
         message = self.text
         details = success and "" or self.details(obj)
+
+        if success:
+            self.successes += 1
+        else:
+            self.failures += 1
+
         return Result(obj, message, success, details)
+
+description_checks = [
+    Check("Description is present", lambda o: o.description is not None),
+    Check("Description is not empty", lambda o: o.description is None or len(o.description) > 0),
+    Check("At most one description", lambda o: o.description != MULTIPLE_DESCRIPTIONS),
+]
+
+synopsis_checks = [
+    Check("Synopsis is present", lambda o: o.synopsis is not None, Severity.commonality),
+    Check("Synopsis is not empty", lambda o: o.synopsis is None or len(o.synopsis) > 0),
+    Check("At most one synopsis", lambda o: o.synopsis != MULTIPLE_SYNOPSIS),
+    Check("Synopsis is single line", lambda o: o.synopsis is None or len(o.synopsis.strip().splitlines()) == 1)
+]
+
+usage_checks = [
+    Check("Usage is present", lambda o: o.usage is not None, Severity.recommendation),
+    Check("Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
+    Check("At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
+]
+
+checks_by_item_type = {
+    "File": [],
+    "Constant": description_checks + synopsis_checks,
+    "Function": description_checks + synopsis_checks + usage_checks,
+    "Module": description_checks + synopsis_checks + usage_checks,
+    "Module&Function": description_checks + synopsis_checks + usage_checks,
+    "Section": [],
+    "Subsection": [],
+}
 
 class ObjectDoc:
     def __init__(self, file, obj_type, name):
         self.file = file
         self.obj_type = obj_type
         self.name = name
+        self.synopsis = None
         self.description = None
         self.usage = None
         self.arguments = []
@@ -46,6 +92,12 @@ class ObjectDoc:
         else:
             self.description = MULTIPLE_DESCRIPTIONS
 
+    def add_synopsis(self, synopsis):
+        if self.synopsis is None:
+            self.synopsis = synopsis
+        else:
+            self.synopsis = MULTIPLE_SYNOPSIS
+
     def add_usage(self, usage):
         if self.usage is None:
             self.usage = usage
@@ -56,13 +108,7 @@ class ObjectDoc:
         self.code += [line]
 
     def checks(self):
-        return [
-            Result(self, "Description is present", self.description is not None),
-            Result(self, "Description is not empty", self.description is None or len(self.description) > 0),
-            Result(self, "At most one description", self.description != MULTIPLE_DESCRIPTIONS),
-            Result(self, "Usage is not empty", self.usage is None or len(self.usage) > 0),
-            Result(self, "At most one usage block", self.usage != MULTIPLE_USAGES),
-        ]
+        return [c.check(self) for c in checks_by_item_type[self.obj_type]]
 
 files = []
 objects = []
@@ -73,7 +119,7 @@ for filename in os.listdir("."):
         files += [filepath]
         print(f"Analyzing {filepath}")
         lines = open(filepath).read().splitlines() + [EOF]
-        current_obj = None
+        current_obj = ObjectDoc(filepath, 'File', '')
         while len(lines) > 0:
             line = lines.pop()
 
@@ -85,13 +131,17 @@ for filename in os.listdir("."):
                     name = line.split(":")[1].split("(")[0].strip()
                     current_obj = ObjectDoc(filepath, block_name, name)
                     objects += [current_obj]
-                elif current_obj is None:
-                    pass
+
+                elif block_name == 'Synopsis':
+                    synopsis = line.split(":")[1].strip() + "\n"
+                    while lines[0].startswith("//   "):
+                        synopsis += lines.pop()[5:] + "\n"
+                    current_obj.add_synopsis(synopsis)
+
                 elif block_name == 'Description':
                     description = line.split(":")[1].strip() + "\n"
                     while lines[0].startswith("//   "):
-                        description += lines[0][5:] + "\n"
-                        lines.pop()
+                        description += lines.pop()[5:] + "\n"
                     current_obj.add_description(description)
 
 
@@ -143,4 +193,7 @@ if __name__ == "__main__":
     print(f"Summary: {sum(successes.values())} successes, {sum(failures.values())} failures.")
 
 # Statistics:
-# - Number of functions with each type of block
+# - By file
+# - By Check
+# - By Severity
+# - Number of block type with each type of item type
