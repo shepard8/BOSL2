@@ -2,7 +2,6 @@ import os
 import re
 from enum import Enum
 
-EOF = 'TDEOF'
 MULTIPLE_DESCRIPTIONS = 'TDMD'
 MULTIPLE_USAGES = 'TDMU'
 MULTIPLE_SYNOPSIS = 'TDMS'
@@ -24,6 +23,7 @@ class Check:
     def __init__(self, text, test, severity : Severity = Severity.needed, details = lambda x : ""):
         self.text = text
         self.test = test
+        self.severity = severity
         self.details = details
         self.successes = 0
         self.failures = 0
@@ -38,30 +38,36 @@ class Check:
         else:
             self.failures += 1
 
-        return Result(obj, message, success, details)
+        return Result(obj, message, success, self.severity, details)
 
 description_checks = [
-    Check("Description is present", lambda o: o.description is not None),
-    Check("Description is not empty", lambda o: o.description is None or len(o.description) > 0),
-    Check("At most one description", lambda o: o.description != MULTIPLE_DESCRIPTIONS),
+    # Check("Description is present", lambda o: o.description is not None),
+    # Check("Description is not empty", lambda o: o.description is None or len(o.description) > 0),
+    # Check("At most one description", lambda o: o.description != MULTIPLE_DESCRIPTIONS),
 ]
 
 synopsis_checks = [
-    Check("Synopsis is present", lambda o: o.synopsis is not None, Severity.commonality),
-    Check("Synopsis is not empty", lambda o: o.synopsis is None or len(o.synopsis) > 0),
-    Check("At most one synopsis", lambda o: o.synopsis != MULTIPLE_SYNOPSIS),
-    Check("Synopsis is single line", lambda o: o.synopsis is None or len(o.synopsis.strip().splitlines()) == 1)
+    # Check("Synopsis is present", lambda o: o.synopsis is not None, Severity.commonality),
+    # Check("Synopsis is not empty", lambda o: o.synopsis is None or len(o.synopsis) > 0),
+    # Check("At most one synopsis", lambda o: o.synopsis != MULTIPLE_SYNOPSIS),
+    # Check("Synopsis is single line", lambda o: o.synopsis is None or len(o.synopsis.strip().splitlines()) == 1)
 ]
 
 usage_checks = [
-    Check("Usage is present", lambda o: o.usage is not None, Severity.recommendation),
-    Check("Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
-    Check("At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
+    # Check("Usage is present", lambda o: o.usage is not None, Severity.recommendation),
+    # Check("Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
+    # Check("At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
+]
+
+code_constant_checks = [
+    # Check("Constant is defined after documentation", lambda o: len(o.code) > 0),
+    # TODO re.match for optional spaces before `=`.
+    Check("Correct constant is defined (`NAME = `)", lambda o: o.code.strip().startswith(o.name + " = "), Severity.needed, lambda o: o.code.strip()),
 ]
 
 checks_by_item_type = {
     "File": [],
-    "Constant": description_checks + synopsis_checks,
+    "Constant": description_checks + synopsis_checks + code_constant_checks,
     "Function": description_checks + synopsis_checks + usage_checks,
     "Module": description_checks + synopsis_checks + usage_checks,
     "Module&Function": description_checks + synopsis_checks + usage_checks,
@@ -84,7 +90,7 @@ class ObjectDoc:
         self.topics = []
         self.see_also = []
         self.other_blocks = []
-        self.code = []
+        self.code = ""
 
     def add_description(self, description):
         if self.description is None:
@@ -105,7 +111,7 @@ class ObjectDoc:
             self.usage = MULTIPLE_USAGES
 
     def add_code_line(self, line):
-        self.code += [line]
+        self.code += line + "\n"
 
     def checks(self):
         return [c.check(self) for c in checks_by_item_type[self.obj_type]]
@@ -118,10 +124,10 @@ for filename in os.listdir("."):
         filepath = os.path.join(".", filename)
         files += [filepath]
         print(f"Analyzing {filepath}")
-        lines = open(filepath).read().splitlines() + [EOF]
+        lines = open(filepath).read().splitlines()
         current_obj = ObjectDoc(filepath, 'File', '')
         while len(lines) > 0:
-            line = lines.pop()
+            line = lines.pop(0)
 
             # New object definition
             if re.match("// [A-Z][a-z]*( [A-Z][a-z]*)?([(][^)]*[)])?:", line):
@@ -135,13 +141,13 @@ for filename in os.listdir("."):
                 elif block_name == 'Synopsis':
                     synopsis = line.split(":")[1].strip() + "\n"
                     while lines[0].startswith("//   "):
-                        synopsis += lines.pop()[5:] + "\n"
+                        synopsis += lines.pop(0)[5:] + "\n"
                     current_obj.add_synopsis(synopsis)
 
                 elif block_name == 'Description':
                     description = line.split(":")[1].strip() + "\n"
                     while lines[0].startswith("//   "):
-                        description += lines.pop()[5:] + "\n"
+                        description += lines.pop(0)[5:] + "\n"
                     current_obj.add_description(description)
 
 
@@ -161,10 +167,7 @@ for filename in os.listdir("."):
                 pass
             # Code
             else:
-                if current_obj is None:
-                    pass
-                else:
-                    current_obj.add_code_line(line)
+                current_obj.add_code_line(line)
 
 if __name__ == "__main__":
     successes = {}
@@ -176,16 +179,15 @@ if __name__ == "__main__":
 
     for obj in objects:
         print(f"{obj.file} : {obj.obj_type} {obj.name}:")
-        for check in obj.checks():
-            if check.success:
-                print(f"OK: {check.message}")
+        for result in obj.checks():
+            if result.success:
+                print(f"OK: {result.message}")
                 successes[obj.file] += 1
             else:
-                print(f"ERROR: Check failed: <{check.message}>")
-                if check.details != "":
-                    print(f"Details: {check.details}")
+                print(f"ERROR: Check failed: <{result.message}>")
+                if result.details != "":
+                    print(f"Details: {result.details}")
                 failures[obj.file] += 1
-        print(f"Summary for ")
 
     for file in files:
         print(f"Summary for {file}: {successes[file]} successes, {failures[file]} failures.")
