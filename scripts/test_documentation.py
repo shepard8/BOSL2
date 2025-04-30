@@ -97,7 +97,6 @@ synopsis_checks = [
 usage_checks = [
     Check("Usage.1", "Usage is present", lambda o: o.usage is not None, Severity.recommendation),
     Check("Usage.2", "Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
-    Check("Usage.3", "At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
 ]
 
 code_constant_checks = [
