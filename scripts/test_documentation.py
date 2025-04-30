@@ -52,6 +52,35 @@ aliases_constant_checks = [
     Check("ConAlias.3", "No duplicate aliases for constants", lambda o: o.aliases is None or len(o.aliases) == len(set(o.aliases))),
 ]
 
+def alias_defined(kw, code, name, alias):
+    alias = alias.replace("()", "").strip()
+    definition_start = [i for (i, x) in enumerate(code) if x.startswith(kw + " ") and x.replace(" ", "").startswith(kw + name + "(")][0]
+    definition = "".join(code[definition_start:]).replace(" ", "").split(")")[0].replace(kw + name + "(", "")
+    try:
+        alias_start = [i for (i, x) in enumerate(code) if x.startswith(kw + " ") and x.replace(" ", "").startswith(kw + alias + "(")][0]
+        alias_definition = "".join(code[alias_start:]).replace(" ", "").split(")")[0].replace(kw + alias + "(", "")
+        return definition == alias_definition
+    except IndexError:
+        return False
+
+aliases_fun_checks = [
+    Check("FunAlias.1", "Function aliases are defined, with same arguments", lambda o: o.aliases is None or False not in [alias_defined("function", o.code, o.name, alias) for alias in o.aliases]),
+    Check("FunAlias.2", "Non-empty function aliases block", lambda o: o.aliases is None or len(o.aliases) > 0),
+    Check("FunAlias.3", "No duplicate aliases for functions", lambda o: o.aliases is None or len(o.aliases) == len(set(o.aliases))),
+]
+
+aliases_mod_checks = [
+    Check("ModAlias.1", "Module aliases are defined, with same arguments", lambda o: o.aliases is None or False not in [alias_defined("module", o.code, o.name, alias) for alias in o.aliases]),
+    Check("ModAlias.2", "Non-empty module aliases block", lambda o: o.aliases is None or len(o.aliases) > 0),
+    Check("ModAlias.3", "No duplicate aliases for modules", lambda o: o.aliases is None or len(o.aliases) == len(set(o.aliases))),
+]
+
+aliases_funmod_checks = [
+    Check("FMAlias.1", "Function&Module aliases are defined, with same arguments", lambda o: o.aliases is None or False not in [alias_defined("function", o.code, o.name, alias) for alias in o.aliases] and False not in [alias_defined("module", o.code, o.name, alias) for alias in o.aliases]),
+    Check("FMAlias.2", "Non-empty function&module aliases block", lambda o: o.aliases is None or len(o.aliases) > 0),
+    Check("FMAlias.3", "No duplicate aliases for function&modules", lambda o: o.aliases is None or len(o.aliases) == len(set(o.aliases))),
+]
+
 description_checks = [
     Check("Desc.1", "Description is present", lambda o: o.description is not None),
     Check("Desc.2", "Description is not empty", lambda o: o.description is None or len(o.description) > 0),
@@ -79,9 +108,9 @@ code_constant_checks = [
 checks_by_item_type = {
     "File": [],
     "Constant": description_checks + synopsis_checks + code_constant_checks + aliases_constant_checks,
-    "Function": description_checks + synopsis_checks + usage_checks,
-    "Module": description_checks + synopsis_checks + usage_checks,
-    "Module&Function": description_checks + synopsis_checks + usage_checks,
+    "Function": description_checks + synopsis_checks + usage_checks + aliases_fun_checks,
+    "Module": description_checks + synopsis_checks + usage_checks + aliases_mod_checks,
+    "Function&Module": description_checks + synopsis_checks + usage_checks + aliases_funmod_checks,
     "Section": [],
     "Subsection": [],
 }
@@ -144,10 +173,10 @@ for filename in os.listdir("."):
             line = lines.pop(0)
 
             # New object definition
-            if re.match("// [A-Z][a-z]*( [A-Z][a-z]*)?([(][^)]*[)])?:", line):
+            if re.match("// [A-Z][a-z]*([ &][A-Z][a-z]*)?([(][^)]*[)])?:", line):
                 block_name = line[2:].split(":")[0].strip()
 
-                if block_name in ['Section', 'Subsection', 'Constant', 'Function', 'Module', 'Module&Function']:
+                if block_name in ['Section', 'Subsection', 'Constant', 'Function', 'Module', 'Function&Module']:
                     name = line.split(":")[1].split("(")[0].strip()
                     current_obj = ObjectDoc(filepath, block_name, name)
                     objects += [current_obj]
@@ -196,7 +225,7 @@ for filename in os.listdir("."):
 if __name__ == "__main__":
     if "--file" in sys.argv:
         file = sys.argv[sys.argv.index("--file") + 1]
-        files = [file]
+        files = ["./" + file]
 
     if "--severity" in sys.argv:
         severity = sys.argv[sys.argv.index("--severity") + 1]
@@ -220,6 +249,8 @@ if __name__ == "__main__":
         failures[file] = 0
 
     for obj in objects:
+        if obj.file not in files:
+            continue
         print(f"{obj.file} : {obj.obj_type} {obj.name}:")
         for result in obj.checks():
             if result.success:
