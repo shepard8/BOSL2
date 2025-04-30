@@ -7,17 +7,19 @@ MULTIPLE_DESCRIPTIONS = 'TDMD'
 MULTIPLE_USAGES = 'TDMU'
 MULTIPLE_SYNOPSIS = 'TDMS'
 
+files = []
+objects = []
+
 class Severity(Enum):
     commonality = 0
     recommendation = 1
     needed = 2
 
 class Result:
-    def __init__(self, obj, message, success, severity : Severity = Severity.needed, details = ""):
+    def __init__(self, obj, check, success, details):
         self.obj = obj
-        self.message = message
+        self.check = check
         self.success = success
-        self.severity = severity
         self.details = details
 
 class Check:
@@ -35,7 +37,6 @@ class Check:
 
     def check(self, obj):
         success = self.test(obj)
-        message = self.text
         details = success and "" or self.details(obj)
 
         if success:
@@ -43,7 +44,13 @@ class Check:
         else:
             self.failures += 1
 
-        return Result(obj, message, success, self.severity, details)
+        return Result(obj, self, success, details)
+
+aliases_constant_checks = [
+    Check("ConAlias.1", "Constant aliases are defined in code", lambda o: o.aliases is None or set([f"{a}={o.name};" for a in o.aliases]).issubset({x.replace(' ', '') for x in o.code})),
+    Check("ConAlias.2", "Non-empty constant aliases block", lambda o: o.aliases is None or len(o.aliases) > 0),
+    Check("ConAlias.3", "No duplicate aliases for constants", lambda o: o.aliases is None or len(o.aliases) == len(set(o.aliases))),
+]
 
 description_checks = [
     Check("Desc.1", "Description is present", lambda o: o.description is not None),
@@ -66,12 +73,12 @@ usage_checks = [
 
 code_constant_checks = [
     Check("ConCode.1", "Constant is defined after documentation", lambda o: len(o.code) > 0),
-    Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}\s*=", o.code.strip()), Severity.needed, lambda o: o.code.strip()),
+    Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}[ ]*=", " ".join(o.code).strip()), Severity.needed, lambda o: '\n'.join(o.code)),
 ]
 
 checks_by_item_type = {
     "File": [],
-    "Constant": description_checks + synopsis_checks + code_constant_checks,
+    "Constant": description_checks + synopsis_checks + code_constant_checks + aliases_constant_checks,
     "Function": description_checks + synopsis_checks + usage_checks,
     "Module": description_checks + synopsis_checks + usage_checks,
     "Module&Function": description_checks + synopsis_checks + usage_checks,
@@ -89,12 +96,12 @@ class ObjectDoc:
         self.usage = None
         self.arguments = []
         self.examples = []
-        self.aliases = []
+        self.aliases = None
         self.status = []
         self.topics = []
         self.see_also = []
         self.other_blocks = []
-        self.code = ""
+        self.code = []
 
     def add_description(self, description):
         if self.description is None:
@@ -114,14 +121,17 @@ class ObjectDoc:
         else:
             self.usage = MULTIPLE_USAGES
 
+    def add_alias(self, alias):
+        if self.aliases is None:
+            self.aliases = [alias]
+        else:
+            self.aliases.append(alias)
+
     def add_code_line(self, line):
-        self.code += line + "\n"
+        self.code.append(line)
 
     def checks(self):
         return [c.check(self) for c in checks_by_item_type[self.obj_type]]
-
-files = []
-objects = []
 
 for filename in os.listdir("."):
     if filename.endswith(".scad"):
@@ -160,11 +170,13 @@ for filename in os.listdir("."):
                         usage += lines.pop(0)[5:] + "\n"
                     current_obj.add_usage(usage)
 
-
+                # Aliases
+                elif block_name == 'Aliases':
+                    for alias in line.split(":")[1].strip().split(','):
+                        current_obj.add_alias(alias.strip())
 
                 # Arguments
                 # Example
-                # Alias
                 # Status
                 # Topics
                 # See also
@@ -172,8 +184,11 @@ for filename in os.listdir("."):
                 # Other documentation line
                 else:
                     pass
+
+            # Other comments
             elif line.startswith("//"):
                 pass
+
             # Code
             else:
                 current_obj.add_code_line(line)
@@ -209,10 +224,10 @@ if __name__ == "__main__":
         for result in obj.checks():
             if result.success:
                 if not hidesuccesses:
-                    print(f"OK: {result.message}")
+                    print(f"OK: {result.check.text}")
                 successes[obj.file] += 1
             else:
-                print(f"ERROR: Check failed: <{result.message}>")
+                print(f"ERROR: Check failed: <{result.check.cid}> {result.check.text}")
                 if result.details != "":
                     print(f"Details: {result.details}")
                 failures[obj.file] += 1
