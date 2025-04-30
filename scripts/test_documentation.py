@@ -153,9 +153,14 @@ for filename in os.listdir("."):
                         description += lines.pop(0)[5:] + "\n"
                     current_obj.add_description(description)
 
+                elif block_name == 'Usage':
+                    usage = line.split(":")[1].strip() + "\n"
+                    while lines[0].startswith("//   "):
+                        usage += lines.pop(0)[5:] + "\n"
+                    current_obj.add_usage(usage)
 
 
-                # Usage
+
                 # Arguments
                 # Example
                 # Alias
