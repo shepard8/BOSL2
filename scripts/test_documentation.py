@@ -20,13 +20,17 @@ class Result:
         self.details = details
 
 class Check:
-    def __init__(self, text, test, severity : Severity = Severity.needed, details = lambda x : ""):
+    def __init__(self, cid, text, test, severity : Severity = Severity.needed, details = lambda x : ""):
+        self.cid = cid
         self.text = text
         self.test = test
         self.severity = severity
         self.details = details
         self.successes = 0
         self.failures = 0
+
+    def __lt__(self, other):
+        return self.cid < other.cid
 
     def check(self, obj):
         success = self.test(obj)
@@ -41,27 +45,27 @@ class Check:
         return Result(obj, message, success, self.severity, details)
 
 description_checks = [
-    # Check("Description is present", lambda o: o.description is not None),
-    # Check("Description is not empty", lambda o: o.description is None or len(o.description) > 0),
-    # Check("At most one description", lambda o: o.description != MULTIPLE_DESCRIPTIONS),
+    Check("Desc.1", "Description is present", lambda o: o.description is not None),
+    Check("Desc.2", "Description is not empty", lambda o: o.description is None or len(o.description) > 0),
+    Check("Desc.3", "At most one description", lambda o: o.description != MULTIPLE_DESCRIPTIONS),
 ]
 
 synopsis_checks = [
-    # Check("Synopsis is present", lambda o: o.synopsis is not None, Severity.commonality),
-    # Check("Synopsis is not empty", lambda o: o.synopsis is None or len(o.synopsis) > 0),
-    # Check("At most one synopsis", lambda o: o.synopsis != MULTIPLE_SYNOPSIS),
-    # Check("Synopsis is single line", lambda o: o.synopsis is None or len(o.synopsis.strip().splitlines()) == 1)
+    Check("Syn.1", "Synopsis is present", lambda o: o.synopsis is not None, Severity.commonality),
+    Check("Syn.2", "Synopsis is not empty", lambda o: o.synopsis is None or len(o.synopsis) > 0),
+    Check("Syn.3", "At most one synopsis", lambda o: o.synopsis != MULTIPLE_SYNOPSIS),
+    Check("Syn.4", "Synopsis is single line", lambda o: o.synopsis is None or len(o.synopsis.strip().splitlines()) == 1)
 ]
 
 usage_checks = [
-    # Check("Usage is present", lambda o: o.usage is not None, Severity.recommendation),
-    # Check("Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
-    # Check("At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
+    Check("Usage.1", "Usage is present", lambda o: o.usage is not None, Severity.recommendation),
+    Check("Usage.2", "Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
+    Check("Usage.3", "At most one usage block", lambda o: o.usage != MULTIPLE_USAGES),
 ]
 
 code_constant_checks = [
-    # Check("Constant is defined after documentation", lambda o: len(o.code) > 0),
-    Check("Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}\s*=", o.code.strip()), Severity.needed, lambda o: o.code.strip()),
+    Check("ConCode.1", "Constant is defined after documentation", lambda o: len(o.code) > 0),
+    Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}\s*=", o.code.strip()), Severity.needed, lambda o: o.code.strip()),
 ]
 
 checks_by_item_type = {
@@ -187,14 +191,33 @@ if __name__ == "__main__":
                 if result.details != "":
                     print(f"Details: {result.details}")
                 failures[obj.file] += 1
+    print()
 
+    print('Statistics by file')
     for file in files:
         print(f"Summary for {file}: {successes[file]} successes, {failures[file]} failures.")
+    print()
+
+    print('Statistics by check')
+    all_checks = sorted(list(set([x for xs in checks_by_item_type.values() for x in xs])))
+    print("%10s   %-15s %8s %8s %s" % ("ID", "Severity", "Success", "Failure", "Message"))
+    for c in all_checks:
+        print("%10s   %-15s %8s %8s %s" % (c.cid, str(c.severity).split('.')[1], c.successes, c.failures, c.text))
+    print()
+
+    print('Statistics by severity')
+    summary_by_severity = {
+        Severity.needed: 0,
+        Severity.recommendation: 0,
+        Severity.commonality: 0,
+    }
+    for c in all_checks:
+        summary_by_severity[c.severity] += c.failures
+    for (severity, count) in summary_by_severity.items():
+        print(f"{severity} : {count}")
+    print()
 
     print(f"Summary: {sum(successes.values())} successes, {sum(failures.values())} failures.")
 
 # Statistics:
-# - By file
-# - By Check
-# - By Severity
 # - Number of block type with each type of item type
