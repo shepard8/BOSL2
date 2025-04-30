@@ -61,8 +61,7 @@ usage_checks = [
 
 code_constant_checks = [
     # Check("Constant is defined after documentation", lambda o: len(o.code) > 0),
-    # TODO re.match for optional spaces before `=`.
-    Check("Correct constant is defined (`NAME = `)", lambda o: o.code.strip().startswith(o.name + " = "), Severity.needed, lambda o: o.code.strip()),
+    Check("Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}\s*=", o.code.strip()), Severity.needed, lambda o: o.code.strip()),
 ]
 
 checks_by_item_type = {
