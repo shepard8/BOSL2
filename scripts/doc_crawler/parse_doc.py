@@ -71,41 +71,30 @@ def parse_doc(files):
             # New object definition
             if re.match("// [A-Z][a-z]*([ &][A-Z][a-z]*)?([(][^)]*[)])?:", line):
                 block_name = line[2:].split(":")[0].strip()
+                block_content = line.split(":", 2)[1]
+                while lines[0].startswith("//   "):
+                    block_content += "\n" + lines.pop(0)[5:]
 
                 if block_name in ['Section', 'Subsection', 'Constant', 'Function', 'Module', 'Function&Module']:
-                    name = line.split(":")[1].split("(")[0].strip()
+                    name = block_content.split("(")[0].strip()
                     current_obj = ObjectDoc(filepath, block_name, name)
-                    objects += [current_obj]
+                    objects.append(current_obj)
 
                 elif block_name == 'Synopsis':
-                    synopsis = line.split(":")[1].strip() + "\n"
-                    while lines[0].startswith("//   "):
-                        synopsis += lines.pop(0)[5:] + "\n"
-                    current_obj.add_synopsis(synopsis)
+                    current_obj.add_synopsis(block_content)
 
                 elif block_name == 'Description':
-                    description = line.split(":")[1].strip() + "\n"
-                    while lines[0].startswith("//   "):
-                        description += lines.pop(0)[5:] + "\n"
-                    current_obj.add_description(description)
+                    current_obj.add_description(block_content)
 
                 elif block_name == 'Usage':
-                    usage = line.split(":")[1].strip() + "\n"
-                    while lines[0].startswith("//   "):
-                        usage += lines.pop(0)[5:] + "\n"
-                    current_obj.add_usage(usage)
+                    current_obj.add_usage(block_content)
 
-                # Aliases
                 elif block_name == 'Aliases':
-                    for alias in line.split(":")[1].strip().split(','):
+                    for alias in block_content.split(','):
                         current_obj.add_alias(alias.strip())
 
-                # Status
                 elif block_name == 'Status':
-                    status = line.split(":")[1].strip() + "\n"
-                    while lines[0].startswith("//   "):
-                        status += lines.pop(0)[5:] + "\n"
-                    current_obj.add_status(status)
+                    current_obj.add_status(block_content)
 
                 # Arguments
                 # Example
