@@ -100,9 +100,15 @@ def parse_doc(files):
                     for alias in line.split(":")[1].strip().split(','):
                         current_obj.add_alias(alias.strip())
 
+                # Status
+                elif block_name == 'Status':
+                    status = line.split(":")[1].strip() + "\n"
+                    while lines[0].startswith("//   "):
+                        status += lines.pop(0)[5:] + "\n"
+                    current_obj.add_status(status)
+
                 # Arguments
                 # Example
-                # Status
                 # Topics
                 # See also
                 # Other documentation block
