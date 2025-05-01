@@ -56,17 +56,24 @@ usage_checks = [
     Check("Usage.2", "Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
 ]
 
+status_checks = [
+    Check("Status.1", "Status is not empty", lambda o: len([s for s in o.statuses if len(s) == 0]) == 0),
+    Check("Status.2", "Status is DEPRECATED", lambda o: len([s for s in o.statuses if not s.startswith("DEPRECATED")]) == 0),
+    Check("Status.2", "Status DEPRECATED contains information (e.g., about alternative)", lambda o: len([s for s in o.statuses if s.startswith("DEPRECATED") and len(s) <= len("DEPRECATED")]) == 0, Severity.commonality),
+]
+
 code_constant_checks = [
     Check("ConCode.1", "Constant is defined after documentation", lambda o: len(o.code) > 0),
     Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}[ ]*=", " ".join(o.code).strip()), Severity.needed, lambda o: '\n'.join(o.code)),
 ]
 
+common_checks = description_checks + synopsis_checks + status_checks
 checks_by_item_type = {
     "File": [],
-    "Constant": description_checks + synopsis_checks + code_constant_checks + aliases_constant_checks,
-    "Function": description_checks + synopsis_checks + usage_checks + aliases_fun_checks,
-    "Module": description_checks + synopsis_checks + usage_checks + aliases_mod_checks,
-    "Function&Module": description_checks + synopsis_checks + usage_checks + aliases_funmod_checks,
+    "Constant": common_checks + code_constant_checks + aliases_constant_checks,
+    "Function": common_checks + usage_checks + aliases_fun_checks,
+    "Module": common_checks + usage_checks + aliases_mod_checks,
+    "Function&Module": common_checks + usage_checks + aliases_funmod_checks,
     "Section": [],
     "Subsection": [],
 }

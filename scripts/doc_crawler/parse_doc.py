@@ -14,7 +14,7 @@ class ObjectDoc:
         self.arguments = []
         self.examples = []
         self.aliases = None
-        self.status = []
+        self.statuses = []
         self.topics = []
         self.see_also = []
         self.other_blocks = []
@@ -43,6 +43,9 @@ class ObjectDoc:
             self.aliases = [alias]
         else:
             self.aliases.append(alias)
+
+    def add_status(self, status):
+        self.statuses.append(status)
 
     def add_code_line(self, line):
         self.code.append(line)
