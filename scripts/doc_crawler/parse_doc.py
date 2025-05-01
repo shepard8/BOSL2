@@ -10,7 +10,7 @@ class ObjectDoc:
         self.name = name
         self.synopsis = None
         self.description = None
-        self.usage = None
+        self.usages = []
         self.arguments = []
         self.examples = []
         self.aliases = None
@@ -33,10 +33,7 @@ class ObjectDoc:
             self.synopsis = MULTIPLE_SYNOPSIS
 
     def add_usage(self, usage):
-        if self.usage is None:
-            self.usage = usage
-        else:
-            self.usage = MULTIPLE_USAGES
+        self.usages.append(usage)
 
     def add_alias(self, alias):
         if self.aliases is None:

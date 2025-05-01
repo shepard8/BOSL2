@@ -52,8 +52,10 @@ synopsis_checks = [
 ]
 
 usage_checks = [
-    Check("Usage.1", "Usage is present", lambda o: o.usage is not None, Severity.recommendation),
-    Check("Usage.2", "Usage is not empty", lambda o: o.usage is None or len(o.usage) > 0),
+    Check("Usage.1", "At least one Usage block", lambda o: len(o.usages) > 0, Severity.recommendation),
+    Check("Usage.2", "Usage is not empty", lambda o: all([len(u) > 0 for u in o.usages])),
+    Check("Usage.3", "Usage shows positional arguments", lambda o: False), # TODO
+    Check("Usage.3", "Usage shows named arguments", lambda o: False), # TODO
 ]
 
 status_checks = [
