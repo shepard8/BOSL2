@@ -62,6 +62,10 @@ status_checks = [
     Check("Status.2", "Status DEPRECATED contains information (e.g., about alternative)", lambda o: len([s for s in o.statuses if s.startswith("DEPRECATED") and len(s) <= len("DEPRECATED")]) == 0, Severity.commonality),
 ]
 
+topic_checks = [
+    Check("Topics.1", "Topics have less than 3 words", lambda o: len([t for t in o.topics if len(t.split(' ')) > 3]) == 0),
+]
+
 code_constant_checks = [
     Check("ConCode.1", "Constant is defined after documentation", lambda o: len(o.code) > 0),
     Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}[ ]*=", " ".join(o.code).strip()), Severity.needed, lambda o: '\n'.join(o.code)),

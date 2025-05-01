@@ -47,6 +47,9 @@ class ObjectDoc:
     def add_status(self, status):
         self.statuses.append(status)
 
+    def add_topic(self, topic):
+        self.topics.append(topic)
+
     def add_code_line(self, line):
         self.code.append(line)
 
@@ -98,6 +101,10 @@ def parse_doc(files):
 
                 elif block_name == 'Status':
                     current_obj.add_status(block_content)
+
+                elif block_name == 'Topics':
+                    for topic in block_content.replace('\n', ',').split(','):
+                        current_obj.add_topic(topic)
 
                 # Arguments
                 # Example
