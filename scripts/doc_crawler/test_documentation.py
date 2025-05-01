@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from enum import Enum
+from Severity import Severity
 
 MULTIPLE_DESCRIPTIONS = 'TDMD'
 MULTIPLE_USAGES = 'TDMU'
@@ -9,18 +9,6 @@ MULTIPLE_SYNOPSIS = 'TDMS'
 
 files = []
 objects = []
-
-class Severity(Enum):
-    commonality = 0
-    recommendation = 1
-    needed = 2
-
-class Result:
-    def __init__(self, obj, check, success, details):
-        self.obj = obj
-        self.check = check
-        self.success = success
-        self.details = details
 
 class Check:
     def __init__(self, cid, text, test, severity : Severity = Severity.needed, details = lambda x : ""):
@@ -31,20 +19,24 @@ class Check:
         self.details = details
         self.successes = 0
         self.failures = 0
+        self.results = {}
 
     def __lt__(self, other):
         return self.cid < other.cid
 
     def check(self, obj):
+        if obj in self.results:
+            return self.results[obj]
+
         success = self.test(obj)
-        details = success and "" or self.details(obj)
+        self.results[obj] = success
 
         if success:
             self.successes += 1
         else:
             self.failures += 1
 
-        return Result(obj, self, success, details)
+        return success
 
 aliases_constant_checks = [
     Check("ConAlias.1", "Constant aliases are defined in code", lambda o: o.aliases is None or set([f"{a}={o.name};" for a in o.aliases]).issubset({x.replace(' ', '') for x in o.code})),
@@ -159,11 +151,11 @@ class ObjectDoc:
         self.code.append(line)
 
     def checks(self):
-        return [c.check(self) for c in checks_by_item_type[self.obj_type]]
+        return checks_by_item_type[self.obj_type]
 
 for filename in os.listdir("."):
     if filename.endswith(".scad"):
-        filepath = os.path.join(".", filename)
+        filepath = os.path.join(filename)
         files += [filepath]
         print(f"Analyzing {filepath}")
         lines = open(filepath).read().splitlines()
@@ -251,15 +243,16 @@ if __name__ == "__main__":
         if obj.file not in files:
             continue
         print(f"{obj.file} : {obj.obj_type} {obj.name}:")
-        for result in obj.checks():
-            if result.success:
+        for check in obj.checks():
+            if check.check(obj):
                 if not hidesuccesses:
-                    print(f"OK: {result.check.text}")
+                    print(f"OK: {check.text}")
                 successes[obj.file] += 1
             else:
-                print(f"ERROR: Check failed: <{result.check.cid}> {result.check.text}")
-                if result.details != "":
-                    print(f"Details: {result.details}")
+                print(f"ERROR: Check failed: <{check.cid}> {check.text}")
+                details = check.details(obj)
+                if details != "":
+                    print(f"Details: {details}")
                 failures[obj.file] += 1
     print()
 
