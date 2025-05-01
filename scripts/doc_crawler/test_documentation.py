@@ -34,14 +34,13 @@ if __name__ == "__main__":
     for obj in objects:
         if obj.file not in files:
             continue
-        print(f"{obj.file} : {obj.obj_type} {obj.name}:")
         for check in obj.checks():
             if check.check(obj):
                 if not hidesuccesses:
-                    print(f"OK: {check.text}")
+                    print(f"[OK] {obj.file} : {obj.obj_type} {obj.name} : <{check.cid}> {check.text}")
                 successes[obj.file] += 1
             else:
-                print(f"ERROR: Check failed: <{check.cid}> {check.text}")
+                print(f"[{str(check.severity).split('.')[1]}] {obj.file} : {obj.obj_type} {obj.name} : <{check.cid}> {check.text}")
                 details = check.details(obj)
                 if details != "":
                     print(f"Details: {details}")
