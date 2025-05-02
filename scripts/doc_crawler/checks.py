@@ -3,6 +3,9 @@ from constants import *
 from Severity import Severity
 from Check import Check
 
+def todo():
+    return False
+
 aliases_constant_checks = [
     Check("ConAlias.1", "Constant aliases are defined in code", lambda o: o.aliases is None or set([f"{a}={o.name};" for a in o.aliases]).issubset({x.replace(' ', '') for x in o.code})),
     Check("ConAlias.2", "Non-empty constant aliases block", lambda o: o.aliases is None or len(o.aliases) > 0),
@@ -54,8 +57,8 @@ synopsis_checks = [
 usage_checks = [
     Check("Usage.1", "At least one Usage block", lambda o: len(o.usages) > 0, Severity.recommendation),
     Check("Usage.2", "Usage is not empty", lambda o: all([len(u) > 0 for u in o.usages])),
-    Check("Usage.3", "Usage shows positional arguments", lambda o: False), # TODO
-    Check("Usage.3", "Usage shows named arguments", lambda o: False), # TODO
+    Check("Usage.3", "Usage shows positional arguments", lambda o: todo()),
+    Check("Usage.3", "Usage shows named arguments", lambda o: todo()),
 ]
 
 status_checks = [
@@ -68,18 +71,33 @@ topic_checks = [
     Check("Topics.1", "Topics have less than 3 words", lambda o: len([t for t in o.topics if len(t.split(' ')) > 3]) == 0),
 ]
 
+argument_checks = [
+    Check("Arg.1", "Arguments match [a-z_]+", lambda o: todo()),
+    Check("Arg.2", "Description is not empty", lambda o: todo()),
+    Check("Arg.3", "Description ends with a dot", lambda o: todo()),
+    Check("Arg.4", "There are at most two sections", lambda o: todo()),
+]
+
 code_constant_checks = [
     Check("ConCode.1", "Constant is defined after documentation", lambda o: len(o.code) > 0),
     Check("ConCode.2", "Correct constant is defined (`NAME = `)", lambda o: re.match(f"^{o.name}[ ]*=", " ".join(o.code).strip()), Severity.needed, lambda o: '\n'.join(o.code)),
 ]
 
-common_checks = description_checks + synopsis_checks + status_checks
+code_module_checks = [
+    Check("ModCode.1", "There is a module in code matching arguments block", lambda o: todo()),
+]
+
+code_function_checks = [
+    Check("FunCode.1", "There is a function in code matching arguments block", lambda o: todo()),
+]
+
+common_checks = description_checks + synopsis_checks + status_checks + argument_checks
 checks_by_item_type = {
     "File": [],
     "Constant": common_checks + code_constant_checks + aliases_constant_checks,
-    "Function": common_checks + usage_checks + aliases_fun_checks,
-    "Module": common_checks + usage_checks + aliases_mod_checks,
-    "Function&Module": common_checks + usage_checks + aliases_funmod_checks,
+    "Function": common_checks + usage_checks + aliases_fun_checks + code_function_checks,
+    "Module": common_checks + usage_checks + aliases_mod_checks + code_module_checks,
+    "Function&Module": common_checks + usage_checks + aliases_funmod_checks + code_function_checks + code_module_checks,
     "Section": [],
     "Subsection": [],
 }

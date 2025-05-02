@@ -3,6 +3,12 @@ import re
 from constants import *
 from checks import checks_by_item_type
 
+class ArgumentDoc:
+    def __init__(self, name, description, section):
+        self.name = name
+        self.description = description
+        self.section = section
+
 class ObjectDoc:
     def __init__(self, file, obj_type, name):
         self.file = file
@@ -47,6 +53,9 @@ class ObjectDoc:
     def add_topic(self, topic):
         self.topics.append(topic)
 
+    def add_argument(self, argument):
+        self.arguments.append(argument)
+
     def add_code_line(self, line):
         self.code.append(line)
 
@@ -74,36 +83,53 @@ def parse_doc(files):
             # New object definition
             if re.match("// [A-Z][a-z]*([ &][A-Z][a-z]*)?([(][^)]*[)])?:", line):
                 block_name = line[2:].split(":")[0].strip()
-                block_content = line.split(":", 2)[1]
-                while lines[0].startswith("//   "):
-                    block_content += "\n" + lines.pop(0)[5:]
+
+                def read_content():
+                    block_content = line.split(":", 1)[1]
+                    while lines[0].startswith("//   "):
+                        block_content += "\n" + lines.pop(0)[5:]
+                    return block_content
 
                 if block_name in ['Section', 'Subsection', 'Constant', 'Function', 'Module', 'Function&Module']:
-                    name = block_content.split("(")[0].strip()
+                    name = read_content().split("(")[0].strip()
                     current_obj = ObjectDoc(filepath, block_name, name)
                     objects.append(current_obj)
 
                 elif block_name == 'Synopsis':
-                    current_obj.add_synopsis(block_content)
+                    current_obj.add_synopsis(read_content())
 
                 elif block_name == 'Description':
-                    current_obj.add_description(block_content)
+                    current_obj.add_description(read_content())
 
                 elif block_name == 'Usage':
-                    current_obj.add_usage(block_content)
+                    current_obj.add_usage(read_content())
 
                 elif block_name == 'Aliases':
-                    for alias in block_content.split(','):
+                    for alias in read_content().split(','):
                         current_obj.add_alias(alias.strip())
 
                 elif block_name == 'Status':
-                    current_obj.add_status(block_content)
+                    current_obj.add_status(read_content())
 
                 elif block_name == 'Topics':
-                    for topic in block_content.replace('\n', ',').split(','):
+                    for topic in read_content().replace('\n', ',').split(','):
                         current_obj.add_topic(topic)
 
                 # Arguments
+                elif block_name == 'Arguments':
+                    arg_section = 1
+                    while lines[0].startswith("//   "):
+                        arg_line = lines.pop(0)[5:].strip()
+                        if arg_line == "---":
+                            arg_section += 1
+                            continue
+                        if '=' in arg_line:
+                            arg_name, arg_desc = arg_line.split('=', 1)
+                        else:
+                            arg_name = arg_line
+                            arg_desc = ""
+                        current_obj.add_argument(ArgumentDoc(arg_name, arg_desc, arg_section))
+
                 # Example
                 # Topics
                 # See also
