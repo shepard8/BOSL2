@@ -72,10 +72,10 @@ topic_checks = [
 ]
 
 argument_checks = [
-    Check("Arg.1", "Arguments match [a-z_]+", lambda o: todo()),
-    Check("Arg.2", "Description is not empty", lambda o: todo()),
-    Check("Arg.3", "Description ends with a dot", lambda o: todo()),
-    Check("Arg.4", "There are at most two sections", lambda o: todo()),
+    Check("Arg.1", "Arguments match [a-z_]+", lambda o: all([re.match("^[a-z_]+$", a.name) for a in o.arguments])),
+    Check("Arg.2", "Description is not empty", lambda o: all([len(a.description) > 0 for a in o.arguments])),
+    Check("Arg.3", "Description ends with a dot", lambda o: all([a.description.endswith(".") for a in o.arguments]), Severity.commonality),
+    Check("Arg.4", "There are at most two sections", lambda o: all([a.section < 3 for a in o.arguments])),
 ]
 
 code_constant_checks = [

@@ -128,7 +128,7 @@ def parse_doc(files):
                         else:
                             arg_name = arg_line
                             arg_desc = ""
-                        current_obj.add_argument(ArgumentDoc(arg_name, arg_desc, arg_section))
+                        current_obj.add_argument(ArgumentDoc(arg_name.strip(), arg_desc.strip(), arg_section))
 
                 # Example
                 # Topics
